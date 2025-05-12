@@ -1,5 +1,7 @@
 # FSDecomp
 
+<img style="float: right;width: 200px;" src="logo.png">
+
 FSDecomp is a Go library that wraps any [`io.fs.FS`](https://pkg.go.dev/io/fs#FS) implementation and provides transparent decompression of compressed files.
 When a file is requested, FSDecomp first tries to open it directly, and if not found, it attempts to locate and decompress a compressed version with a supported extension.
 

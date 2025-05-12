@@ -12,6 +12,9 @@ import (
 	"github.com/pierrec/lz4/v4"
 )
 
+// Make sure DecompressFS implements fs.FS
+var _ fs.FS = (*DecompressFS)(nil)
+
 // DecompressFS wraps an io.FS and automatically decompresses files with known extensions
 type DecompressFS struct {
 	fs.FS
