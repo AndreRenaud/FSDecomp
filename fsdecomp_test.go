@@ -11,6 +11,8 @@ import (
 	"testing/fstest"
 
 	"github.com/dsnet/compress/bzip2"
+	"github.com/klauspost/compress/zstd"
+	"github.com/pierrec/lz4"
 )
 
 // TestDecompressFS tests the functionality of DecompressFS
@@ -19,6 +21,8 @@ func TestDecompressFS(t *testing.T) {
 	normalContent := "This is a normal file"
 	gzipContent := "This is gzipped content"
 	bzip2Content := "This is bzip2 content"
+	zstdContent := "This is zstd content"
+	lz4Content := "This is lz4 content"
 
 	// Create a test MapFS with various file types
 	testFS := fstest.MapFS{
@@ -30,6 +34,12 @@ func TestDecompressFS(t *testing.T) {
 		},
 		"archive.txt.bz2": &fstest.MapFile{
 			Data: createBzip2Data(t, bzip2Content),
+		},
+		"file-zstd.txt.zst": &fstest.MapFile{
+			Data: createZstdData(t, zstdContent),
+		},
+		"file-lz4.txt.lz4": &fstest.MapFile{
+			Data: createLz4Data(t, lz4Content),
 		},
 	}
 
@@ -57,6 +67,16 @@ func TestDecompressFS(t *testing.T) {
 			name:         "Bzip2 file - transparent access",
 			path:         "archive.txt",
 			expectedData: bzip2Content,
+		},
+		{
+			name:         "Zstd file - transparent access",
+			path:         "file-zstd.txt",
+			expectedData: zstdContent,
+		},
+		{
+			name:         "Lz4 file - transparent access",
+			path:         "file-lz4.txt",
+			expectedData: lz4Content,
 		},
 		{
 			name:          "Non-existent file",
@@ -131,6 +151,35 @@ func createBzip2Data(t *testing.T, content string) []byte {
 	}
 	if err := bw.Close(); err != nil {
 		t.Fatalf("Failed to close bzip2 writer: %v", err)
+	}
+	return buf.Bytes()
+}
+
+// Helper to create zstd test data
+func createZstdData(t *testing.T, content string) []byte {
+	var buf bytes.Buffer
+	zw, err := zstd.NewWriter(&buf)
+	if err != nil {
+		t.Fatalf("Failed to create zstd writer: %v", err)
+	}
+	if _, err := zw.Write([]byte(content)); err != nil {
+		t.Fatalf("Failed to write zstd data: %v", err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("Failed to close zstd writer: %v", err)
+	}
+	return buf.Bytes()
+}
+
+// Helper to create lz4 test data
+func createLz4Data(t *testing.T, content string) []byte {
+	var buf bytes.Buffer
+	lw := lz4.NewWriter(&buf)
+	if _, err := lw.Write([]byte(content)); err != nil {
+		t.Fatalf("Failed to write lz4 data: %v", err)
+	}
+	if err := lw.Close(); err != nil {
+		t.Fatalf("Failed to close lz4 writer: %v", err)
 	}
 	return buf.Bytes()
 }

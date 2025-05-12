@@ -7,6 +7,9 @@ import (
 	"io"
 	"io/fs"
 	"strings"
+
+	"github.com/klauspost/compress/zstd"
+	"github.com/pierrec/lz4/v4"
 )
 
 // DecompressFS wraps an io.FS and automatically decompresses files with known extensions
@@ -34,6 +37,18 @@ func (dfs *DecompressFS) Open(name string) (fs.File, error) {
 		bz2File, bz2Err := dfs.FS.Open(name + ".bz2")
 		if bz2Err == nil {
 			return newBzip2File(bz2File)
+		}
+
+		// Try .zst
+		zstFile, zstErr := dfs.FS.Open(name + ".zst")
+		if zstErr == nil {
+			return newZstdFile(zstFile)
+		}
+
+		// Try .lz4
+		lz4File, lz4Err := dfs.FS.Open(name + ".lz4")
+		if lz4Err == nil {
+			return newLz4File(lz4File)
 		}
 	}
 
@@ -107,6 +122,54 @@ func newBzip2File(f fs.File) (fs.File, error) {
 	return &decompressFile{
 		reader:     bzReader,
 		closer:     f,
+		info:       modifiedInfo,
+		originalFS: f,
+	}, nil
+}
+
+// newZstdFile creates a decompressed file reader for zstd files
+func newZstdFile(f fs.File) (fs.File, error) {
+	zstReader, err := zstd.NewReader(f)
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
+
+	// Get the original file info
+	info, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
+
+	// Create custom FileInfo with the original name without the extension
+	modifiedInfo := modifyFileInfo(info, strings.TrimSuffix(info.Name(), ".zst"))
+
+	return &decompressFile{
+		reader:     zstReader,
+		closer:     f,
+		info:       modifiedInfo,
+		originalFS: f,
+	}, nil
+}
+
+// newLz4File creates a decompressed file reader for lz4 files
+func newLz4File(f fs.File) (fs.File, error) {
+	lz4Reader := lz4.NewReader(f)
+
+	// Get the original file info
+	info, err := f.Stat()
+	if err != nil {
+		f.Close()
+		return nil, err
+	}
+
+	// Create custom FileInfo with the original name without the extension
+	modifiedInfo := modifyFileInfo(info, strings.TrimSuffix(info.Name(), ".lz4"))
+
+	return &decompressFile{
+		reader:     lz4Reader,
+		closer:     f, // LZ4 reader doesn't need to be closed
 		info:       modifiedInfo,
 		originalFS: f,
 	}, nil
