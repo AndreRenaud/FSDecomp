@@ -1,8 +1,7 @@
 name: Go Tests
 
 on:
-  push:
-    branches: [ main ]
+  push: # Run on push to any branch
   pull_request:
     branches: [ main ]
 
