@@ -203,3 +203,112 @@ func TestReadDirectoryFails(t *testing.T) {
 		}
 	}
 }
+
+// TestDecompressReadDir tests the directory listing functionality with transparent decompression
+func TestDecompressReadDir(t *testing.T) {
+	// Create a test MapFS with regular and compressed files
+	testFS := fstest.MapFS{
+		"dir/regular.txt": &fstest.MapFile{
+			Data: []byte("regular content"),
+		},
+		"dir/compressed.txt.gz": &fstest.MapFile{
+			Data: createGzipData(t, "gzipped content"),
+		},
+		"dir/archive.txt.bz2": &fstest.MapFile{
+			Data: createBzip2Data(t, "bzip2 content"),
+		},
+		"dir/file.txt.zst": &fstest.MapFile{
+			Data: createZstdData(t, "zstd content"),
+		},
+		"dir/data.txt.lz4": &fstest.MapFile{
+			Data: createLz4Data(t, "lz4 content"),
+		},
+		"dir/subdir/nested.txt": &fstest.MapFile{
+			Data: []byte("nested content"),
+		},
+		"dir/subdir/nested.gz": &fstest.MapFile{
+			Data: createGzipData(t, "nested gzipped content"),
+		},
+	}
+
+	dfs := New(testFS)
+
+	// Test ReadDir at the root
+	t.Run("ReadDir at root", func(t *testing.T) {
+		entries, err := fs.ReadDir(dfs, "dir")
+		if err != nil {
+			t.Fatalf("Failed to read directory: %v", err)
+		}
+
+		// Should list 6 entries: 5 files (with transparent decompression) and 1 directory
+		expectedNames := map[string]struct{}{
+			"regular.txt":    {},
+			"compressed.txt": {}, // No .gz extension
+			"archive.txt":    {}, // No .bz2 extension
+			"file.txt":       {}, // No .zst extension
+			"data.txt":       {}, // No .lz4 extension
+			"subdir":         {},
+		}
+
+		if len(entries) != len(expectedNames) {
+			t.Errorf("Expected %d entries, got %d", len(expectedNames), len(entries))
+		}
+
+		// Check that each entry has the expected name (without compression extension)
+		for _, entry := range entries {
+			name := entry.Name()
+			if _, exists := expectedNames[name]; !exists {
+				t.Errorf("Unexpected entry: %s", name)
+			} else {
+				delete(expectedNames, name)
+			}
+
+			// Verify entry type
+			if name == "subdir" {
+				if !entry.IsDir() {
+					t.Errorf("Expected 'subdir' to be a directory")
+				}
+			} else {
+				if entry.IsDir() {
+					t.Errorf("Expected '%s' to be a file", name)
+				}
+			}
+		}
+
+		// Check if any expected names weren't found
+		for name := range expectedNames {
+			t.Errorf("Missing expected entry: %s", name)
+		}
+	})
+
+	// Test ReadDir in a subdirectory
+	t.Run("ReadDir in subdirectory", func(t *testing.T) {
+		entries, err := fs.ReadDir(dfs, "dir/subdir")
+		if err != nil {
+			t.Fatalf("Failed to read subdirectory: %v", err)
+		}
+
+		// Should list 2 entries in the subdirectory
+		expectedNames := map[string]struct{}{
+			"nested.txt": {},
+			"nested":     {}, // No .gz extension
+		}
+
+		if len(entries) != len(expectedNames) {
+			t.Errorf("Expected %d entries, got %d", len(expectedNames), len(entries))
+		}
+
+		for _, entry := range entries {
+			name := entry.Name()
+			if _, exists := expectedNames[name]; !exists {
+				t.Errorf("Unexpected entry: %s", name)
+			} else {
+				delete(expectedNames, name)
+			}
+		}
+
+		for name := range expectedNames {
+			t.Errorf("Missing expected entry: %s", name)
+		}
+	})
+}

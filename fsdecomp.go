@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/fs"
 	"strings"
+	"time"
 
 	"github.com/klauspost/compress/zstd"
 	"github.com/pierrec/lz4/v4"
@@ -14,10 +15,16 @@ import (
 
 // Make sure DecompressFS implements fs.FS
 var _ fs.FS = (*DecompressFS)(nil)
+var _ fs.ReadDirFS = (*DecompressFS)(nil)
 
 // DecompressFS wraps an io.FS and automatically decompresses files with known extensions
 type DecompressFS struct {
 	fs.FS
+}
+
+// New creates a new DecompressFS that wraps the provided filesystem
+func New(fsys fs.FS) *DecompressFS {
+	return &DecompressFS{FS: fsys}
 }
 
 // Open implements fs.FS.Open
@@ -57,6 +64,36 @@ func (dfs *DecompressFS) Open(name string) (fs.File, error) {
 
 	// Original error if all attempts fail
 	return nil, err
+}
+
+func (dfs *DecompressFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	// Custom implementation that filters/modifies directory entries
+	entries, err := fs.ReadDir(dfs.FS, name)
+	if err != nil {
+		return nil, err
+	}
+	for i, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return nil, err
+		}
+		name := entry.Name()
+		if strings.HasSuffix(name, ".gz") || strings.HasSuffix(name, ".bz2") || strings.HasSuffix(name, ".zst") || strings.HasSuffix(name, ".lz4") {
+			// Modify the name to remove the compression extension
+			newName := strings.TrimSuffix(name, ".gz")
+			newName = strings.TrimSuffix(newName, ".bz2")
+			newName = strings.TrimSuffix(newName, ".zst")
+			newName = strings.TrimSuffix(newName, ".lz4")
+			entries[i] = &fileInfoWrapper{
+				FileInfo: info,
+				name:     newName,
+			}
+		}
+	}
+	return entries, nil
 }
 
 // decompressFile implements fs.File for a decompressed reader
@@ -200,6 +237,18 @@ type fileInfoWrapper struct {
 
 func (fiw fileInfoWrapper) Name() string {
 	return fiw.name
+}
+
+func (fiw fileInfoWrapper) Info() (fs.FileInfo, error) {
+	return fiw.FileInfo, nil
+}
+
+func (fiw fileInfoWrapper) Type() fs.FileMode {
+	return fiw.FileInfo.Mode()
+}
+
+func (fiw fileInfoWrapper) ModTime() time.Time {
+	return fiw.FileInfo.ModTime()
 }
 
 func modifyFileInfo(info fs.FileInfo, newName string) fs.FileInfo {
