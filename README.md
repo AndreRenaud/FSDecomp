@@ -2,7 +2,7 @@
 
 <img align="right" width="200px" height="200px" src="logo.png">
 
-[![Go Tests](https://github.com/AndreRenaud/fsdecomp/actions/workflows/test.yml/badge.svg)](https://github.com/AndreRenaud/fsdecomp/actions/workflows/test.yml)
+[![Go Tests](https://github.com/AndreRenaud/FSDecomp/actions/workflows/test.yml/badge.svg)](https://github.com/AndreRenaud/FSDecomp/actions/workflows/test.yml)
 
 FSDecomp is a Go library that wraps any [`io.fs.FS`](https://pkg.go.dev/io/fs#FS) implementation and provides transparent decompression of compressed files.
 When a file is requested, FSDecomp first tries to open it directly, and if not found, it attempts to locate and decompress a compressed version with a supported extension.
