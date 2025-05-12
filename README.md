@@ -26,7 +26,7 @@ go get github.com/AndreRenaud/fsdecomp
 
 ## Usage
 
-### Basic Usage
+Apply automatic file decompression to any `fs.FS` object by wrapping it in a `fsdecomp.DecompressFS`.
 
 ```go
 package main
@@ -43,7 +43,7 @@ import (
 
 func main() {
 	// Create a decompressing filesystem wrapper around os.DirFS
-	fsys := fsdecomp.New(os.DirFS("./data"))
+	fsys := fsdecomp.DecompressFS{os.DirFS("./data")}
 
 	// Open a file - if data/config.json doesn't exist but data/config.json.gz does,
 	// it will be transparently decompressed
@@ -61,21 +61,6 @@ func main() {
 
 	fmt.Println(string(content))
 }
-```
-
-### With fs.Sub
-
-```go
-// Create a subfolder view with decompression support
-baseFS := os.DirFS(".")
-decompFS := fsdecomp.New(baseFS)
-configFS, err := fs.Sub(decompFS, "configs")
-if err != nil {
-    log.Fatal(err)
-}
-
-// This will find and decompress configs/app.yaml.gz if configs/app.yaml doesn't exist
-file, err := configFS.Open("app.yaml")
 ```
 
 ## Limitations
