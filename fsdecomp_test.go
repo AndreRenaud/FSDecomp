@@ -12,7 +12,7 @@ import (
 
 	"github.com/dsnet/compress/bzip2"
 	"github.com/klauspost/compress/zstd"
-	"github.com/pierrec/lz4"
+	lz4 "github.com/pierrec/lz4/v4"
 )
 
 // TestDecompressFS tests the functionality of DecompressFS
